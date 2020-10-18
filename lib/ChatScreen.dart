@@ -54,11 +54,9 @@ class ChatScreenState extends State<ChatScreen> {
                   sort: (a, b) => b.key.compareTo(a.key),
                   //comparing timestamp of messages to check which one would appear first
                   itemBuilder: (_, DataSnapshot messageSnapshot,
-                      Animation<double> animation) {
+                      Animation<double> animation, index) {
                     return new ChatMessageListItem(
-                      messageSnapshot: messageSnapshot,
-                      animation: animation,
-                    );
+                        messageSnapshot: messageSnapshot, animation: animation);
                   },
                 ),
               ),
@@ -129,10 +127,12 @@ class ChatScreenState extends State<ChatScreen> {
                           .ref()
                           .child("img_" + timestamp.toString() + ".jpg");
                       StorageUploadTask uploadTask =
-                          storageReference.put(imageFile);
-                      Uri downloadUrl = (await uploadTask.future).downloadUrl;
-                      _sendMessage(
-                          messageText: null, imageUrl: downloadUrl.toString());
+                          storageReference.putFile(imageFile);
+                      StorageTaskSnapshot taskSnapshot =
+                          await uploadTask.onComplete;
+                      String downloadUrl =
+                          await taskSnapshot.ref.getDownloadURL();
+                      _sendMessage(messageText: null, imageUrl: downloadUrl);
                     }),
               ),
               new Flexible(
@@ -193,11 +193,15 @@ class ChatScreenState extends State<ChatScreen> {
 
     currentUserEmail = googleSignIn.currentUser.email;
 
-    if (await auth.currentUser() == null) {
+    if (auth.currentUser == null) {
       GoogleSignInAuthentication credentials =
           await googleSignIn.currentUser.authentication;
-      await auth.signInWithGoogle(
-          idToken: credentials.idToken, accessToken: credentials.accessToken);
+      final AuthCredential credential = GoogleAuthProvider.credential(
+        accessToken: credentials.accessToken,
+        idToken: credentials.idToken,
+      );
+
+      await auth.signInWithCredential(credential);
     }
   }
 
@@ -205,7 +209,7 @@ class ChatScreenState extends State<ChatScreen> {
     await auth.signOut();
     googleSignIn.signOut();
     Scaffold
-        .of(_scaffoldContext)
-        .showSnackBar(new SnackBar(content: new Text('User logged out')));
+      .of(_scaffoldContext)
+      .showSnackBar(new SnackBar(content: new Text('User logged out')));
   }
 }
